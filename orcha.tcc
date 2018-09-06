@@ -91,6 +91,23 @@ std::vector<std::function<std::tuple<A, B>(void)>> orcha::zip2(std::vector<std::
   return cs;
 }
 
+template<typename A, typename B>
+std::vector<std::function<void(std::tuple<A, B>)>> orcha::zip2(std::vector<std::function<void(A)>> as, std::vector<std::function<void(B)>> bs) {
+  if (as.size() != bs.size()) {
+    throw std::runtime_error("zip: number of objects must match!");
+  }
+
+  std::vector<std::function<void(std::tuple<A, B>)>> cs;
+
+  for (auto a = as.begin(), b = bs.begin(); a < as.end() && b < bs.end(); a++, b++) {
+    cs.push_back([a, b] (std::tuple<A, B> t) {
+      (*a)(std::get<0>(t)); (*b)(std::get<1>(t));
+    });
+  }
+
+  return cs;
+}
+
 template<typename T>
 std::vector<T> orcha::produce(std::vector<std::function<T(void)>> ps) {
   std::vector<T> vs;

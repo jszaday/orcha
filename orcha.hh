@@ -55,6 +55,9 @@ namespace orcha
   template<typename A, typename B>
   std::vector<std::function<std::tuple<A, B>(void)>> zip2(std::vector<std::function<A(void)>> as, std::vector<std::function<B(void)>> bs);
 
+  template<typename A, typename B>
+  std::vector<std::function<void(std::tuple<A, B>)>> zip2(std::vector<std::function<void(A)>> as, std::vector<std::function<void(B)>> bs);
+
   // template<typename A, typename B, typename C>
   // std::vector<std::function<std::tuple<A, B, C>(void)>> zip3(std::vector<std::function<A(void)>> as, std::vector<std::function<B(void)>> bs, std::vector<std::function<C(void)>> cs);
 
