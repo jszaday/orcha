@@ -38,23 +38,37 @@ namespace orcha
   template<class T, class R, class... As>
   std::function<std::function<R(As...)>(T&)> bind(R(T::*p)(As...));
 
-  template<typename K, typename V, template <class> typename F, template<typename, typename> class T, typename... Ts>
-  std::vector<std::function<std::tuple<Ts...>(void)>> pmap(T<K, V> &p, std::vector<K> ks, F<std::function<std::tuple<Ts...>(void)>(V&)> f);
+  template<typename T, typename K, typename V, typename R, typename... As>
+  std::vector<std::function<R(As...)>> map(T &t, std::vector<K> ks, std::function<std::function<R(As...)>(V&)> f);
 
-  template<typename K, typename V, template <class> typename F, template<typename, typename> class T, typename... Ts>
-  std::vector<std::function<void(Ts...)>> cmap(T<K, V> &c, std::vector<K> ks, F<std::function<void(Ts...)>(V&)> f);
+  template<typename T, typename R = void>
+  inline void strate(const std::vector<std::function<T(void)>> &ps, const std::vector<std::function<void(T)>> &cs);
 
-  template<typename... Ts>
-  void produce(std::vector<std::function<std::tuple<Ts...>(void)>> producers, std::vector<std::function<void(Ts...)>> consumers);
+  template<typename T, typename R, typename std::enable_if<!std::is_void<R>::value>::type>
+  inline std::vector<std::function<R(void)>> strate(const std::vector<std::function<T(void)>> &ps, const std::vector<std::function<R(T)>> &cs);
 
-  template<typename... Ts>
-  std::vector<std::tuple<Ts...>> produce(std::vector<std::function<std::tuple<Ts...>(void)>> producers);
+  template<typename... Ts, typename R = void>
+  inline void strate(const std::vector<std::function<std::tuple<Ts...>(void)>> &ps, const std::vector<std::function<void(Ts...)>> &cs);
 
-  template<typename... Ts>
-  inline void consume(std::vector<std::function<void(Ts...)>> consumers, std::vector<std::function<std::tuple<Ts...>(void)>> producers);
+  // TODO Add non-void strate definition for Ts.../R
+
+  template<typename A, typename B>
+  std::vector<std::function<std::tuple<A, B>(void)>> zip2(std::vector<std::function<A(void)>> as, std::vector<std::function<B(void)>> bs);
+
+  // template<typename A, typename B, typename C>
+  // std::vector<std::function<std::tuple<A, B, C>(void)>> zip3(std::vector<std::function<A(void)>> as, std::vector<std::function<B(void)>> bs, std::vector<std::function<C(void)>> cs);
+
+  template<typename T>
+  void consume(std::vector<std::function<void(T)>> consumers, std::vector<T> values);
 
   template<typename... Ts>
   void consume(std::vector<std::function<void(Ts...)>> consumers, std::vector<std::tuple<Ts...>> values);
+
+  template<typename T>
+  std::vector<T> produce(std::vector<std::function<T(void)>> ps);
+
+  template<typename T, typename R>
+  R reduce(std::vector<std::function<T(void)>> ps, R init, std::function<R(R,T)> reducer);
 
   template<typename T, typename... Ts>
   T reduce(std::vector<std::function<std::tuple<Ts...>(void)>> producers, T init, std::function<T(T,Ts...)> reducer);
@@ -66,4 +80,4 @@ namespace orcha
   R call(std::function<R(As...)> const &f, Ps<As...> const &ps);
 };
 
-#include <orcha.tcc>
+#include "orcha.tcc"

@@ -17,59 +17,106 @@ std::function<std::function<R(As...)>(T&)> orcha::bind(R(T::*p)(As...)) {
   };
 }
 
-template<typename K, typename V, template <class> typename F, template<typename, typename> class T, typename... Ts>
-std::vector<std::function<std::tuple<Ts...>(void)>> orcha::pmap(T<K, V> &p, std::vector<K> ks, F<std::function<std::tuple<Ts...>(void)>(V&)> f) {
-  std::vector<std::function<std::tuple<Ts...>(void)>> ps;
+template<typename T, typename K, typename V, typename R, typename... As>
+std::vector<std::function<R(As...)>> orcha::map(T &t, std::vector<K> ks, std::function<std::function<R(As...)>(V&)> f) {
+  std::vector<std::function<R(As...)>> fs;
 
-  std::transform(ks.begin(), ks.end(), std::back_inserter(ps), [p, f] (K k) {
-    return f(p(k));
+  std::transform(ks.begin(), ks.end(), std::back_inserter(fs), [t, f] (K k) {
+    // TODO overload map with a const and non-const version
+    return f(const_cast<V&>(t[k]));
   });
 
-  return ps;
+  return fs;
 }
 
-template<typename K, typename V, template <class> typename F, template<typename, typename> class T, typename... Ts>
-std::vector<std::function<void(Ts...)>> orcha::cmap(T<K, V> &c, std::vector<K> ks, F<std::function<void(Ts...)>(V&)> f) {
-  std::vector<std::function<void(Ts...)>> cs;
+template<typename T, typename R = void>
+inline void orcha::strate(const std::vector<std::function<T(void)>> &ps, const std::vector<std::function<void(T)>> &cs) {
+  if (ps.size() != cs.size()) {
+    throw std::runtime_error("orchestrate: number of objects must match!");
+  }
 
-  std::transform(ks.begin(), ks.end(), std::back_inserter(cs), [c, f] (K k) {
-    return f(c(k));
-  });
+  for (auto i = ps.begin(), j = cs.begin(); i < ps.end() && j < cs.end(); i++, j++) {
+    // ckschedule(..., [i, j]() {
+      (*j)((*i)());
+    // }, ...);
+  }
+}
+
+template<typename T, typename R, typename std::enable_if<!std::is_void<R>::value>::type>
+inline std::vector<std::function<R(void)>> orcha::strate(const std::vector<std::function<T(void)>> &ps, const std::vector<std::function<R(T)>> &cs) {
+  if (ps.size() != cs.size()) {
+    throw std::runtime_error("orchestrate: number of objects must match!");
+  }
+
+  std::vector<std::function<R(void)>> rs;
+
+  for (auto p = ps.begin(), c = cs.begin(); p < ps.end() && c < cs.end(); p++, c++) {
+    rs.push_back([p, c] (void) {
+      // ckschedule(..., [i, j]() {
+        return (*c)((*p)());
+      // }, ...);
+    });
+  }
+
+  return rs;
+}
+
+template<typename... Ts, typename R = void>
+inline void orcha::strate(const std::vector<std::function<std::tuple<Ts...>(void)>> &ps, const std::vector<std::function<void(Ts...)>> &cs) {
+  if (ps.size() != cs.size()) {
+    throw std::runtime_error("orchestrate: number of objects must match!");
+  }
+
+  for (auto p = ps.begin(), c = cs.begin(); p < ps.end() && c < cs.end(); p++, c++) {
+    // ckschedule(..., [i, j]() {
+      orcha::call(*c, (*p)());
+    // }, ...);
+  }
+}
+
+template<typename A, typename B>
+std::vector<std::function<std::tuple<A, B>(void)>> orcha::zip2(std::vector<std::function<A(void)>> as, std::vector<std::function<B(void)>> bs) {
+  if (as.size() != bs.size()) {
+    throw std::runtime_error("zip: number of objects must match!");
+  }
+
+  std::vector<std::function<std::tuple<A, B>(void)>> cs;
+
+  for (auto a = as.begin(), b = bs.begin(); a < as.end() && b < bs.end(); a++, b++) {
+    cs.push_back([a, b] (void) {
+      return std::make_tuple((*a)(), (*b)());
+    });
+  }
 
   return cs;
 }
 
-template<typename... Ts>
-void orcha::produce(std::vector<std::function<std::tuple<Ts...>(void)>> producers, std::vector<std::function<void(Ts...)>> consumers) {
-  if (producers.size() != consumers.size()) {
-    throw std::runtime_error("number of producers must match number of consumers!");
-  }
+template<typename T>
+std::vector<T> orcha::produce(std::vector<std::function<T(void)>> ps) {
+  std::vector<T> vs;
 
-  for (auto i = producers.begin(), j = consumers.begin(); i < producers.end() && j < consumers.end(); i++, j++) {
-    orcha::call(*j, (*i)());
-  }
+  std::transform(ps.begin(), ps.end(), std::back_inserter(vs), [](std::function<T(void)> p) {
+    return p();
+  });
+
+  return vs;
 }
 
-template<typename... Ts>
-inline void orcha::consume(std::vector<std::function<void(Ts...)>> consumers, std::vector<std::function<std::tuple<Ts...>(void)>> producers) {
-  orcha::produce(producers, consumers);
-}
-
-template<typename... Ts>
-std::vector<std::tuple<Ts...>> orcha::produce(std::vector<std::function<std::tuple<Ts...>(void)>> producers) {
-  std::vector<std::tuple<Ts...>> values;
-
-  for (auto i = producers.begin(); i < producers.end(); i++) {
-    values.push_back((*i)());
+template<typename T>
+void orcha::consume(std::vector<std::function<void(T)>> consumers, std::vector<T> values) {
+  if (values.size() != consumers.size()) {
+    throw std::runtime_error("consume: number of objects must match!");
   }
 
-  return values;
+  for (auto i = values.begin(), j = consumers.begin(); i < values.end() && j < consumers.end(); i++, j++) {
+    (*j)(*i);
+  }
 }
 
 template<typename... Ts>
 void orcha::consume(std::vector<std::function<void(Ts...)>> consumers, std::vector<std::tuple<Ts...>> values) {
   if (values.size() != consumers.size()) {
-    throw std::runtime_error("number of values must match number of consumers!");
+    throw std::runtime_error("consume: number of objects must match!");
   }
 
   for (auto i = values.begin(), j = consumers.begin(); i < values.end() && j < consumers.end(); i++, j++) {
@@ -85,6 +132,13 @@ R orcha::call(std::function<R(As...)> const &f, Ps<As...> const &ps, int_sequenc
 template<typename R, template<typename...> class Ps, typename... As>
 R orcha::call(std::function<R(As...)> const &f, Ps<As...> const &ps) {
   return call(f, ps, make_int_sequence<sizeof...(As)>{});
+}
+
+template<typename T, typename R>
+R orcha::reduce(std::vector<std::function<T(void)>> ps, R init, std::function<R(R,T)> reducer) {
+  auto vs = orcha::produce(ps);
+  // on C++17 or newer use parallel reduce
+  return std::accumulate(vs.begin(), vs.end(), init, reducer);
 }
 
 template<typename T, typename... Ts>
