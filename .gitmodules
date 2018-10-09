@@ -1,0 +1,3 @@
+[submodule "serialize-tuple"]
+	path = serialize-tuple
+	url = https://github.com/Sydius/serialize-tuple.git

@@ -7,6 +7,8 @@
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>
 
+#include <serialize-tuple/serialize_tuple.h>
+
 namespace orcha {
   namespace archive {
     using istream_t  = std::istringstream;
