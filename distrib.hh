@@ -2,24 +2,24 @@
 
 #include "ispace.hh"
 #include "archive.hh"
+#include "functional.hh"
 
 #include <map>
 #include <memory>
+#include <utility>
 
 namespace orcha {
 
   namespace mapping {
-    class automatic {
-    public:
-      template<typename K>
-      IndexSpace<K> get_local(IndexSpace<K> is) {
-        return is;
-      }
-    };
+    template<typename K>
+    IndexSpace<K> automatic(const IndexSpace<K> &is) {
+      return is;
+    }
   }
 
   class AbstractArray {
-    virtual ~AbstractArray() = 0;
+  public:
+    virtual ~AbstractArray() {}
   };
 
   using id_t  = std::uint64_t;
@@ -31,24 +31,30 @@ namespace orcha {
 
   template<typename K, typename V>
   class DistributedArray : public AbstractArray {
-    const id_t id_; std::map<K, V> local_;
+    const id_t id_; std::map<K, V*> local_;
     const IndexSpace<K> global_;
   public:
+    // TODO fix mapping strategy!!
     template<typename S, typename... As>
-    DistributedArray(id_t id, const S &strategy, const IndexSpace<K> &is, As... args) : id_(id), global_(is) {
-      for (auto i : strategy.get_local(is)) {
-        local_.emplace(i, i, &args...);
+    DistributedArray(id_t id, S strategy, const IndexSpace<K> &is, As... args)
+    : id_(id), global_(is) {
+      for (auto i : is) {
+        local_[i] = new V(i, &args...);
       }
     }
 
-    ~DistributedArray() { }
+    ~DistributedArray() {
+      for (auto kv : local_) {
+        delete kv.second;
+      }
+    }
 
     inline bool is_local(K i) const {
       return local_.find(i) != local_.end();
     }
 
-    inline const V& operator[] (const K& k) const {
-      return local_[k];
+    inline V& operator[] (const K& k) {
+      return *local_[k];
     };
 
     inline id_t id() const {
@@ -72,8 +78,8 @@ namespace orcha {
   };
 
   template<typename V, typename K, typename S, typename... As>
-  std::shared_ptr<DistributedArray<K, V>> distribute(const S &strategy, const IndexSpace<K> &is, As... args) {
-    std::shared_ptr<DistributedArray<K, V>> arr = std::make_shared<DistributedArray<K, V>>(k_arrs_.size(), strategy, is, &args...);
+  std::shared_ptr<DistributedArray<K, V>> distribute(S strategy, const IndexSpace<K> &is, As... args) {
+    std::shared_ptr<DistributedArray<K, V>> arr = std::make_shared<DistributedArray<K, V>>(k_arrs_.size(), &strategy, is, &args...);
     k_arrs_.push_back(arr);
     return std::move(arr);
   }
@@ -81,7 +87,7 @@ namespace orcha {
   template<typename K, typename V, typename R, typename... As>
   RegisteredFunction<K, R, As...> register_function(std::shared_ptr<DistributedArray<K, V>> arr, R(V::*p)(As...)) {
     reg_t f = [arr, p] (id_t i) {
-      return wrap(bind(p, (*arr)[arr->key_for(i)]));
+      return archive::wrap(functional::bind(p, (*arr)[arr->key_for(i)]));
     };
     k_funs_.push_back(std::move(f));
     return RegisteredFunction<K, R, As...>(k_funs_.size() - 1);
