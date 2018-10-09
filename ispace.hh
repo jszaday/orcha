@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
+#include <stdexcept>
 
 namespace orcha {
 
@@ -34,6 +35,19 @@ namespace orcha {
     inline size_type     size()  const { return base_.size(); }
     inline iterator_type begin() const { return base_.begin(); }
     inline iterator_type end()   const { return base_.end(); }
+
+    inline const size_type index_of(T t) const {
+      auto v = std::distance(base_.begin(), find(base_.begin(), base_.end(), t));
+      if ( v >= 0 ) {
+        return (size_type) v;
+      } else {
+        throw std::out_of_range("ordinal_of");
+      }
+    }
+
+    inline const T& operator[] (const size_type& i) const {
+      return base_[i];
+    }
 
   private:
     vector_type base_;
