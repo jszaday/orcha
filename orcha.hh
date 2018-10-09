@@ -1,3 +1,5 @@
+#pragma once
+
 #include <type_traits>
 #include <cstdint>
 #include <tuple>
@@ -6,7 +8,6 @@
 #include <functional>
 #include <numeric>
 #include <stdexcept>
-#pragma once
 
 template<int...> struct int_sequence {};
 
