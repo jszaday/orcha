@@ -8,6 +8,7 @@
 #include <boost/archive/binary_oarchive.hpp>
 
 #include <serialize-tuple/serialize_tuple.h>
+#include <boost/serialization/vector.hpp>
 
 namespace orcha {
   namespace archive {
