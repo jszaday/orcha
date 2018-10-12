@@ -1,6 +1,7 @@
 #pragma once
 
 #include "distrib.hh"
+#include <iostream>
 
 namespace orcha {
   template<typename T>
@@ -27,7 +28,7 @@ namespace orcha {
       return base_.size();
     }
 
-    inline const T& operator[] (const size_type& i) const {
+    inline const T operator[] (const size_type& i) const {
       return base_[i];
     }
   private:
@@ -36,7 +37,7 @@ namespace orcha {
 
   inline id_t fresh_tag(id_t arr, id_t entry, id_t ord) {
     static id_t tag = 0;
-    return ++tag;
+    return tag++;
   }
 
   static void produce(id_t array, id_t entry, id_t element, id_t out_tag) {
@@ -52,44 +53,44 @@ namespace orcha {
 
   }
 
-  template<typename K, typename R>
-  inline TaggedValues<R> strate(RegisteredFunction<K, R, void> f, IndexSpace<K> fis) {
+  template<typename K, typename V, typename R>
+  inline TaggedValues<R> strate(RegisteredFunction<K, V, R> f, IndexSpace<K> fis) {
     TaggedValues<R> out_tags;
     for (int i = 0; i < fis.size(); i++) {
-      id_t ord = fis.ordinal_for(fis[i]),
-           out_tag = fresh_tag(f.arr_id_, f.id_, ord);
+      id_t ord = f.ordinal_for(fis[i]),
+           out_tag = fresh_tag(f.arr_id(), f.id(), ord);
       if (f.is_local(fis[i])) {
-        produce(f.arr_id_, f.id_, ord, out_tag);
+        produce(f.arr_id(), f.id(), ord, out_tag);
       }
       out_tags.push_back(out_tag);
     }
     return std::move(out_tags);
   }
 
-  template<typename K, typename T>
-  inline void strate(RegisteredFunction<K, void, T> f, IndexSpace<K> fis, TaggedValues<T> in_tags) {
+  template<typename K, typename V, typename T>
+  inline void strate(RegisteredFunction<K, V, void, T> f, IndexSpace<K> fis, TaggedValues<T> in_tags) {
     if (fis.size() != in_tags.size()) {
       throw std::out_of_range("size_mismatch");
     }
     for (int i = 0; i < fis.size(); i++) {
-      id_t ord = fis.ordinal_for(fis[i]), in_tag = in_tags[i];
+      id_t ord = f.ordinal_for(fis[i]), in_tag = in_tags[i];
       if (f.is_local(fis[i])) {
-        consume(f.arr_id_, f.id_, ord, in_tag);
+        consume(f.arr_id(), f.id(), ord, in_tag);
       }
     }
   }
 
-  template<typename K, typename R, typename T>
-  inline TaggedValues<R> strate(RegisteredFunction<K, R, T> f, IndexSpace<K> fis, TaggedValues<T> in_tags) {
+  template<typename K, typename V, typename R, typename T>
+  inline TaggedValues<R> strate(RegisteredFunction<K, V, R, T> f, IndexSpace<K> fis, TaggedValues<T> in_tags) {
     if (fis.size() != in_tags.size()) {
       throw std::out_of_range("size_mismatch");
     }
     TaggedValues<R> out_tags;
     for (int i = 0; i < fis.size(); i++) {
-      id_t ord = fis.ordinal_for(fis[i]), in_tag = in_tags[i],
-           out_tag = fresh_tag(f.arr_id_, f.id_, ord);
+      id_t ord = f.ordinal_for(fis[i]), in_tag = in_tags[i],
+           out_tag = fresh_tag(f.arr_id(), f.id(), ord);
       if (f.is_local(fis[i])) {
-        produce_consume(f.arr_id_, f.id_, ord, in_tag, out_tag);
+        produce_consume(f.arr_id(), f.id(), ord, in_tag, out_tag);
       }
       out_tags.push_back(out_tag);
     }

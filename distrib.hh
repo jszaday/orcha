@@ -70,11 +70,29 @@ namespace orcha {
     }
   };
 
-  template<class K, class R, class... As>
+  template<class K, class V, class R, class... As>
   class RegisteredFunction {
     const id_t id_;
+    const std::shared_ptr<DistributedArray<K, V>> arr_;
   public:
-    RegisteredFunction(id_t id) : id_(id) { }
+    RegisteredFunction(id_t id, std::shared_ptr<DistributedArray<K, V>> arr)
+    : id_(id), arr_(arr) { }
+
+    inline const id_t id() const{
+      return id_;
+    }
+
+    inline const id_t arr_id() const {
+      return arr_->id();
+    }
+
+    inline const id_t ordinal_for(K k) const {
+      return arr_->ordinal_for(k);
+    }
+
+    inline bool is_local(K k) const {
+      return arr_->is_local(k);
+    }
   };
 
   template<typename V, typename K, typename S, typename... As>
@@ -85,11 +103,11 @@ namespace orcha {
   }
 
   template<typename K, typename V, typename R, typename... As>
-  RegisteredFunction<K, R, As...> register_function(std::shared_ptr<DistributedArray<K, V>> arr, R(V::*p)(As...)) {
+  RegisteredFunction<K, V, R, As...> register_function(std::shared_ptr<DistributedArray<K, V>> arr, R(V::*p)(As...)) {
     reg_t f = [arr, p] (id_t i) {
       return archive::wrap(functional::bind(p, (*arr)[arr->key_for(i)]));
     };
     k_funs_.push_back(std::move(f));
-    return RegisteredFunction<K, R, As...>(k_funs_.size() - 1);
+    return RegisteredFunction<K, V, R, As...>(k_funs_.size() - 1, arr);
   }
 }
