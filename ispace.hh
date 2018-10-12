@@ -15,8 +15,8 @@ namespace orcha {
     using size_type = typename vector_type::size_type;
     using iterator_type = typename vector_type::const_iterator;
 
-    template<typename V, typename U>
-    IndexSpace(const V &base, const std::function<T(U)> &mapper) {
+    template<typename V, typename F>
+    IndexSpace(const V &base, F mapper) {
       base_ = std::vector<T>(base.size());
       std::transform(base.begin(), base.end(), base_.begin(), mapper);
     };
@@ -61,8 +61,8 @@ namespace orcha {
     return IndexSpace<size_t>(n);
   }
 
-  template<typename T, typename U, typename V>
-  inline IndexSpace<T> map(const V &base, const std::function<T(U)> &mapper) {
+  template<typename T, typename V, typename F>
+  inline IndexSpace<T> map(const V &base, const F &&mapper) {
     return IndexSpace<T>(base, mapper);
   }
 }

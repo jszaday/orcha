@@ -1,7 +1,9 @@
 #pragma once
 
 #include "distrib.hh"
-#include <iostream>
+
+#include <future>
+#include <thread>
 
 namespace orcha {
   template<typename T>
@@ -40,12 +42,28 @@ namespace orcha {
     return tag++;
   }
 
-  static void produce(id_t array, id_t entry, id_t element, id_t out_tag) {
+  std::map<id_t, std::future<std::string>> k_pending_;
 
+  static void request(id_t tag) {
+    // TODO add networked request here
+    k_pending_[tag] = std::future<std::string>();
+  }
+
+  static void produce(id_t array, id_t entry, id_t element, id_t out_tag) {
+    k_pending_[out_tag] = std::async(std::launch::async, [entry, element] {
+      return (k_funs_[entry](element))({});
+    });
   }
 
   static void consume(id_t array, id_t entry, id_t element, id_t in_tag) {
-
+    if (k_pending_.find(in_tag) == k_pending_.end()) {
+      request(in_tag);
+    }
+    std::async(std::launch::async, [entry, element, in_tag] {
+      auto f = std::move(k_pending_[in_tag]);
+      f.wait(); (k_funs_[entry](element))(f.get());
+      k_pending_.erase(in_tag);
+    });
   }
 
   static void produce_consume(id_t array, id_t entry, id_t element,
