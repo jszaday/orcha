@@ -13,12 +13,16 @@ public:
   test(int i) : i_(i) { }
 
   int a(void) {
-    std::this_thread::sleep_for(std::chrono::seconds(dis(gen)));
     return i_;
   }
 
-  void b(int a) {
-    std::cout << i_ << " received a message from " << a << std::endl;
+  int b(int a) {
+    std::this_thread::sleep_for(std::chrono::seconds(dis(gen)));
+    return a * 2;
+  }
+
+  void c(int b) {
+    std::cout << i_ << " received the value " << b << std::endl;
   }
 };
 
@@ -31,12 +35,14 @@ int main(void) {
   // Create the distributed array
   auto arr = orcha::distribute<test>(map, is);
   // Register the producer and consumer
-  auto a   = orcha::register_function(arr, &test::a);
-  auto b   = orcha::register_function(arr, &test::b);
+  auto a = orcha::register_function(arr, &test::a);
+  auto b = orcha::register_function(arr, &test::b);
+  auto c = orcha::register_function(arr, &test::c);
   // Map the as onto their right neighbors
   auto as = orcha::strate(a, is);
-  orcha::strate(b, orcha::map<orcha::id_t>(is, [&n] (orcha::id_t i) -> orcha::id_t {
+  auto bs = orcha::strate(b, orcha::map<orcha::id_t>(is, [&n] (orcha::id_t i) -> orcha::id_t {
     return (i + 1) % n;
   }), as);
+  orcha::strate(c, is, bs);
   return 0;
 }

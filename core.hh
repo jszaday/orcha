@@ -62,13 +62,18 @@ namespace orcha {
     std::async(std::launch::async, [entry, element, in_tag] {
       auto f = std::move(k_pending_[in_tag]);
       f.wait(); (k_funs_[entry](element))(f.get());
-      k_pending_.erase(in_tag);
     });
   }
 
   static void produce_consume(id_t array, id_t entry, id_t element,
                               id_t in_tag, id_t out_tag) {
-
+    if (k_pending_.find(in_tag) == k_pending_.end()) {
+      request(in_tag);
+    }
+    k_pending_[out_tag] = std::async(std::launch::async, [entry, element, in_tag] {
+      auto f = std::move(k_pending_[in_tag]);
+      f.wait(); return (k_funs_[entry](element))(f.get());;
+    });
   }
 
   template<typename K, typename V, typename R>
