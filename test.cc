@@ -26,23 +26,31 @@ public:
   }
 };
 
-int main(void) {
+int main(int argc, char **argv) {
+  // Initialize the library
+  orcha::comm::initialize(argc, argv);
+  std::cout << "[" << orcha::comm::rank(orcha::comm::global()) << "] Initialized." << std::endl;
   const int n = 10;
   // Create the index space (0, 1, 2, ...)
   auto is  = orcha::index_space(n);
-  // Determine which elements reside on the local node
-  auto map = orcha::mapping::automatic(is);
+  std::cout << "[" << orcha::comm::rank(orcha::comm::global()) << "] Created index space." << std::endl;
   // Create the distributed array
-  auto arr = orcha::distribute<test>(map, is);
+  auto arr = orcha::distribute<test>(orcha::automap(is));
+  std::cout << "[" << orcha::comm::rank(orcha::comm::global()) << "] Created distributed array." << std::endl;
   // Register the producer and consumer
   auto a = orcha::register_function(arr, &test::a);
   auto b = orcha::register_function(arr, &test::b);
   auto c = orcha::register_function(arr, &test::c);
-  // Map the as onto their right neighbors
+  std::cout << "[" << orcha::comm::rank(orcha::comm::global()) << "] Registered functions." << std::endl;
+  // Run the orchestration code
   auto as = orcha::strate(a, is);
   auto bs = orcha::strate(b, orcha::map<orcha::id_t>(is, [&n] (orcha::id_t i) -> orcha::id_t {
     return (i + 1) % n;
   }), as);
   orcha::strate(c, is, bs);
+  // Wait until all of the nodes have finished
+  orcha::comm::barrier(orcha::comm::global());
+  // Then finalize the library
+  orcha::comm::finalize();
   return 0;
 }

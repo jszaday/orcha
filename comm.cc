@@ -6,8 +6,6 @@ namespace orcha {
     std::thread k_comms_;
     std::mutex k_mpi_lock;
     std::atomic<bool> k_running_;
-
-    // decltype(MPI::COMM_WORLD) global() = MPI::COMM_WORLD;
   }
 }
 
@@ -104,6 +102,7 @@ void orcha::comm::barrier(const orcha::comm::comm_t &comm) {
 
   do {
     std::this_thread::sleep_for(std::chrono::milliseconds(MPI_PERIOD_MS));
+    std::cout << "spinning on pending lock..." << std::endl;
     std::lock_guard<std::mutex> guard(k_pending_lock_);
     flag = k_pending_.size() != 0;
   } while (flag);

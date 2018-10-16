@@ -2,27 +2,27 @@
 
 #include <mpi.h>
 
-#include "distrib.hh"
-
 #include <atomic>
 #include <chrono>
+#include <cstdint>
 #include <exception>
 #include <future>
 #include <mutex>
 #include <thread>
 
 namespace orcha {
+  using id_t = std::uint64_t;
+
   namespace comm {
     const int REQUEST = 0;
     const int MAX_LEN = 1;
     const int MPI_PERIOD_MS = 100;
 
-    using comm_t = MPI::Intracomm; // MPI::Comm;
-
     extern std::thread k_comms_;
     extern std::mutex k_mpi_lock;
     extern std::atomic<bool> k_running_;
 
+    using comm_t = MPI::Intracomm; // MPI::Comm;
     const comm_t& global(void);
 
     // extern decltype(MPI::COMM_WORLD) k_global;

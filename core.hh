@@ -40,17 +40,54 @@ namespace orcha {
     vector_type base_;
   };
 
-  inline id_t fresh_tag(id_t arr, id_t entry, id_t ord) {
-    static id_t tag = 0;
-    return tag++;
-  }
+  void request(id_t tag);
+  void produce(id_t array, id_t entry, id_t element, id_t out_tag);
+  void consume(id_t array, id_t entry, id_t element, id_t in_tag);
+  void produce_consume(id_t array, id_t entry, id_t element, id_t in_tag, id_t out_tag);
+
+  id_t fresh_tag(id_t arr, id_t entry, id_t element);
 
   template<typename K, typename V, typename R>
-  inline TaggedValues<R> strate(RegisteredFunction<K, V, R> f, IndexSpace<K> fis);
+  inline TaggedValues<R> strate(RegisteredFunction<K, V, R> f, IndexSpace<K> fis) {
+    TaggedValues<R> out_tags;
+    for (int i = 0; i < fis.size(); i++) {
+      id_t ord = f.ordinal_for(fis[i]),
+           out_tag = fresh_tag(f.arr_id(), f.id(), ord);
+      if (f.is_local(fis[i])) {
+        produce(f.arr_id(), f.id(), ord, out_tag);
+      }
+      out_tags.push_back(out_tag);
+    }
+    return std::move(out_tags);
+  }
 
   template<typename K, typename V, typename T>
-  inline void strate(RegisteredFunction<K, V, void, T> f, IndexSpace<K> fis, TaggedValues<T> in_tags);
+  inline void strate(RegisteredFunction<K, V, void, T> f, IndexSpace<K> fis, TaggedValues<T> in_tags) {
+    if (fis.size() != in_tags.size()) {
+      throw std::out_of_range("size_mismatch");
+    }
+    for (int i = 0; i < fis.size(); i++) {
+      id_t ord = f.ordinal_for(fis[i]), in_tag = in_tags[i];
+      if (f.is_local(fis[i])) {
+        consume(f.arr_id(), f.id(), ord, in_tag);
+      }
+    }
+  }
 
   template<typename K, typename V, typename R, typename T>
-  inline TaggedValues<R> strate(RegisteredFunction<K, V, R, T> f, IndexSpace<K> fis, TaggedValues<T> in_tags);
+  inline TaggedValues<R> strate(RegisteredFunction<K, V, R, T> f, IndexSpace<K> fis, TaggedValues<T> in_tags){
+    if (fis.size() != in_tags.size()) {
+      throw std::out_of_range("size_mismatch");
+    }
+    TaggedValues<R> out_tags;
+    for (int i = 0; i < fis.size(); i++) {
+      id_t ord = f.ordinal_for(fis[i]), in_tag = in_tags[i],
+           out_tag = fresh_tag(f.arr_id(), f.id(), ord);
+      if (f.is_local(fis[i])) {
+        produce_consume(f.arr_id(), f.id(), ord, in_tag, out_tag);
+      }
+      out_tags.push_back(out_tag);
+    }
+    return std::move(out_tags);
+  }
 }
