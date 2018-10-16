@@ -26,8 +26,8 @@ namespace orcha {
   using arr_t = std::shared_ptr<AbstractArray>;
   using reg_t = std::function<archive::function_t(id_t)>;
 
-  std::vector<arr_t> k_arrs_;
-  std::vector<reg_t> k_funs_;
+  extern std::vector<arr_t> k_arrs_;
+  extern std::vector<reg_t> k_funs_;
 
   template<typename K, typename V>
   class DistributedArray : public AbstractArray {
@@ -96,18 +96,8 @@ namespace orcha {
   };
 
   template<typename V, typename K, typename S, typename... As>
-  std::shared_ptr<DistributedArray<K, V>> distribute(S strategy, const IndexSpace<K> &is, As... args) {
-    std::shared_ptr<DistributedArray<K, V>> arr = std::make_shared<DistributedArray<K, V>>(k_arrs_.size(), &strategy, is, &args...);
-    k_arrs_.push_back(arr);
-    return std::move(arr);
-  }
+  std::shared_ptr<DistributedArray<K, V>> distribute(S strategy, const IndexSpace<K> &is, As... args);
 
   template<typename K, typename V, typename R, typename... As>
-  RegisteredFunction<K, V, R, As...> register_function(std::shared_ptr<DistributedArray<K, V>> arr, R(V::*p)(As...)) {
-    reg_t f = [arr, p] (id_t i) {
-      return archive::wrap(functional::bind(p, (*arr)[arr->key_for(i)]));
-    };
-    k_funs_.push_back(std::move(f));
-    return RegisteredFunction<K, V, R, As...>(k_funs_.size() - 1, arr);
-  }
+  RegisteredFunction<K, V, R, As...> register_function(std::shared_ptr<DistributedArray<K, V>> arr, R(V::*p)(As...));
 }
