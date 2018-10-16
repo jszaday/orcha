@@ -6,7 +6,7 @@ namespace orcha {
   std::mutex k_pending_lock_;
 
   static void request(id_t tag) {
-    k_pending_[tag] = std::move(comm::request_value(comm::k_global, tag >> 32, tag));
+    k_pending_[tag] = std::move(comm::request_value(comm::global(), tag >> 32, tag));
   }
 
   static void produce(id_t array, id_t entry, id_t element, id_t out_tag) {
