@@ -14,8 +14,8 @@ namespace orcha {
   using id_t = std::uint64_t;
 
   namespace comm {
-    const int REQUEST = 0;
-    const int MAX_LEN = 1;
+    const char REQUEST = 'R';
+    const char VALUE   = 'V';
     const int MPI_PERIOD_MS = 100;
 
     extern std::thread k_comms_;
@@ -25,11 +25,13 @@ namespace orcha {
     using comm_t = MPI::Intracomm; // MPI::Comm;
     const comm_t& global(void);
 
+    std::future<std::string> request_value(id_t tag);
+
     // extern decltype(MPI::COMM_WORLD) k_global;
     void send_value(const comm_t &comm, int source, int tag);
-    std::string receive_value(const comm_t &comm, int source, int tag);
-    std::future<std::string> request_value(const comm_t &comm, int source, int tag);
+    void receive_value(const orcha::comm::comm_t &comm, int source, int tag, char* buffer, int count);
     bool poll_for_message(const comm_t &comm);
+    void send_requests(const comm_t &comm);
 
     int rank(const comm_t &comm);
     int size(const comm_t &comm);

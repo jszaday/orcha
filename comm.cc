@@ -5,7 +5,10 @@ namespace orcha {
   namespace comm {
     std::thread k_comms_;
     std::mutex k_mpi_lock;
+    std::mutex k_req_lock;
     std::atomic<bool> k_running_;
+    std::map<id_t, std::promise<std::string>> k_requests_;
+    std::vector<id_t> k_request_queue_;
   }
 }
 
@@ -18,34 +21,30 @@ orcha::id_t orcha::comm::make_tag(int source, int tag) {
   return (((orcha::id_t)source) << 32) | tag;
 }
 
-std::string orcha::comm::receive_value(const orcha::comm::comm_t &comm, int source, int tag) {
-  MPI::Status status;
-  comm.Probe(source, tag, status);
-  auto  count = status.Get_count(MPI::CHAR);
-  auto buffer = new char[count];
-  comm.Recv(buffer, count, MPI::CHAR, source, tag);
-  auto s = std::string(buffer, count);
-  delete buffer;
-  return s;
-}
-
-std::future<std::string> orcha::comm::request_value(const orcha::comm::comm_t &comm, int source, int tag) {
-  return std::move(boost::asio::post(k_pool_, boost::asio::use_future([&comm, source, tag] {
-    std::lock_guard<std::mutex> guard(k_mpi_lock);
-    comm.Send(&REQUEST, 1, MPI::INT, source, tag);
-    return receive_value(comm, source, tag);
-  })));
+std::future<std::string> orcha::comm::request_value(orcha::id_t tag) {
+  std::lock_guard<std::mutex> guard(k_req_lock);
+  k_request_queue_.emplace_back(tag);
+  k_requests_[tag] = std::promise<std::string>();
+  return std::move(k_requests_[tag].get_future());
 }
 
 bool orcha::comm::poll_for_message(const orcha::comm::comm_t &comm) {
   if (comm.Iprobe(MPI::ANY_SOURCE, MPI::ANY_TAG)) {
-    MPI::Status status; int buffer[MAX_LEN];
-    comm.Recv(buffer, MAX_LEN, MPI::INT, MPI::ANY_SOURCE, MPI::ANY_TAG, status);
+    MPI::Status status; comm.Probe(MPI::ANY_SOURCE, MPI::ANY_TAG, status);
+    auto  count  = status.Get_count(MPI::CHAR),
+          source = status.Get_source(), tag = status.Get_tag();
+    auto buffer = new char[count];
+    comm.Recv(buffer, count, MPI::CHAR, source, tag, status);
     switch(buffer[0]) {
       case REQUEST:
-        send_value(comm, status.Get_source(), status.Get_tag());
-        return true;
+        send_value(comm, source, tag); break;
+      case VALUE:
+        receive_value(comm, source, tag, buffer + 1, count - 1); break;
+      default:
+        throw std::runtime_error("unsupported message type " + std::to_string(buffer[0]));
     }
+    delete buffer;
+    return true;
   }
   return false;
 }
@@ -59,8 +58,24 @@ void orcha::comm::send_value(const orcha::comm::comm_t &comm, int source, int ta
   auto fut = std::move(k_pending_[tag_]);
   k_pending_.erase(tag_);
   k_pending_lock_.unlock();
-  fut.wait(); auto val = fut.get();
+  fut.wait(); auto val = fut.get().insert(0, &VALUE, 1);
   comm.Send(val.c_str(), val.size(), MPI::CHAR, source, tag);
+}
+
+void orcha::comm::receive_value(const orcha::comm::comm_t &comm, int source, int tag, char* buffer, int count) {
+  auto tag_ = make_tag(source, tag);
+  k_requests_[tag_].set_value(std::string(buffer, count));
+  k_requests_.erase(tag_);
+}
+
+void orcha::comm::send_requests(const comm_t &comm) {
+  std::lock_guard<std::mutex> guard(k_req_lock);
+  while (!k_request_queue_.empty()) {
+    auto tag_ = k_request_queue_.back();
+    int tag = tag_, source = tag_ >> 32;
+    comm.Send(&REQUEST, 1, MPI::CHAR, source, tag);
+    k_request_queue_.pop_back();
+  }
 }
 
 int orcha::comm::rank(const orcha::comm::comm_t &comm) {
@@ -85,6 +100,7 @@ void orcha::comm::initialize(int &argc, char** &argv) {
       std::this_thread::sleep_for(std::chrono::milliseconds(MPI_PERIOD_MS));
       // poll for a message
       std::lock_guard<std::mutex> guard(k_mpi_lock);
+      send_requests(global());
       poll_for_message(global());
     }
   }));

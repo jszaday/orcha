@@ -16,7 +16,8 @@ namespace orcha {
   template<typename T>
   class TaggedValues {
   public:
-    using vector_type = std::vector<id_t>;
+    using value_type  = id_t;
+    using vector_type = std::vector<value_type>;
     using size_type   = typename vector_type::size_type;
 
     TaggedValues() { }
@@ -37,14 +38,13 @@ namespace orcha {
       return base_.size();
     }
 
-    inline const T operator[] (const size_type& i) const {
+    inline const value_type operator[] (const size_type& i) const {
       return base_[i];
     }
   private:
     vector_type base_;
   };
 
-  void request(id_t tag);
   void produce(id_t array, id_t entry, id_t element, id_t out_tag);
   void consume(id_t array, id_t entry, id_t element, id_t in_tag);
   void produce_consume(id_t array, id_t entry, id_t element, id_t in_tag, id_t out_tag);
