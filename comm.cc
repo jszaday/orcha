@@ -31,13 +31,13 @@ std::future<std::string> orcha::comm::request_value(orcha::id_t tag) {
 bool orcha::comm::poll_for_message(const orcha::comm::comm_t &comm) {
   if (comm.Iprobe(MPI::ANY_SOURCE, MPI::ANY_TAG)) {
     MPI::Status status; comm.Probe(MPI::ANY_SOURCE, MPI::ANY_TAG, status);
-    auto  count  = status.Get_count(MPI::CHAR),
-          source = status.Get_source(), tag = status.Get_tag();
+    auto count  = status.Get_count(MPI::CHAR),
+         source = status.Get_source(), tag = status.Get_tag();
     auto buffer = new char[count];
     comm.Recv(buffer, count, MPI::CHAR, source, tag, status);
     switch(buffer[0]) {
       case REQUEST:
-        send_value(comm, source, tag); break;
+        boost::asio::post(k_pool_, std::bind(send_value, comm, source, tag)); break;
       case VALUE:
         receive_value(comm, source, tag, buffer + 1, count - 1); break;
       default:
@@ -59,6 +59,7 @@ void orcha::comm::send_value(const orcha::comm::comm_t &comm, int source, int ta
   k_pending_.erase(tag_);
   k_pending_lock_.unlock();
   fut.wait(); auto val = fut.get().insert(0, &VALUE, 1);
+  std::lock_guard<std::mutex> guard(k_mpi_lock);
   comm.Send(val.c_str(), val.size(), MPI::CHAR, source, tag);
 }
 
@@ -96,8 +97,8 @@ void orcha::comm::initialize(int &argc, char** &argv) {
   k_comms_ = std::move(std::thread([] {
     // while we are still running
     while (k_running_.load(std::memory_order_acquire)) {
-      // wait for MPI_PERIOD_MS milliseconds
-      std::this_thread::sleep_for(std::chrono::milliseconds(MPI_PERIOD_MS));
+      // wait for MPI_PERIOD_US microseconds
+      std::this_thread::sleep_for(std::chrono::microseconds(MPI_PERIOD_US));
       // poll for a message
       std::lock_guard<std::mutex> guard(k_mpi_lock);
       send_requests(global());

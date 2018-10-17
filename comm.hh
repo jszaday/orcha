@@ -16,7 +16,7 @@ namespace orcha {
   namespace comm {
     const char REQUEST = 'R';
     const char VALUE   = 'V';
-    const int MPI_PERIOD_MS = 100;
+    const int MPI_PERIOD_US = 10;
 
     extern std::thread k_comms_;
     extern std::mutex k_mpi_lock;
