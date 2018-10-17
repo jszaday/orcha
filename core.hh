@@ -2,12 +2,16 @@
 
 #include "distrib.hh"
 
+#include <boost/asio.hpp>
 #include <future>
 #include <mutex>
 
 namespace orcha {
   extern std::map<id_t, std::future<std::string>> k_pending_;
   extern std::mutex k_pending_lock_;
+  extern boost::asio::thread_pool k_pool_;
+
+  const int k_thread_pool_size_ = 4;
 
   template<typename T>
   class TaggedValues {

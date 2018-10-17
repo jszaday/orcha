@@ -17,7 +17,7 @@ public:
   }
 
   int b(int a) {
-    std::this_thread::sleep_for(std::chrono::seconds(dis(gen)));
+    // std::this_thread::sleep_for(std::chrono::seconds(dis(gen)));
     return a * 2;
   }
 

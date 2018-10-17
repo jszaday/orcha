@@ -30,11 +30,11 @@ std::string orcha::comm::receive_value(const orcha::comm::comm_t &comm, int sour
 }
 
 std::future<std::string> orcha::comm::request_value(const orcha::comm::comm_t &comm, int source, int tag) {
-  return std::move(std::async(std::launch::async, [&comm, source, tag] {
+  return std::move(boost::asio::post(k_pool_, boost::asio::use_future([&comm, source, tag] {
     std::lock_guard<std::mutex> guard(k_mpi_lock);
     comm.Send(&REQUEST, 1, MPI::INT, source, tag);
     return receive_value(comm, source, tag);
-  }));
+  })));
 }
 
 bool orcha::comm::poll_for_message(const orcha::comm::comm_t &comm) {
@@ -99,14 +99,7 @@ void orcha::comm::finalize(void) {
 
 void orcha::comm::barrier(const orcha::comm::comm_t &comm) {
   bool flag;
-
-  do {
-    std::this_thread::sleep_for(std::chrono::milliseconds(MPI_PERIOD_MS));
-    std::cout << "spinning on pending lock..." << std::endl;
-    std::lock_guard<std::mutex> guard(k_pending_lock_);
-    flag = k_pending_.size() != 0;
-  } while (flag);
-
+  k_pool_.join();
   std::lock_guard<std::mutex> guard(k_mpi_lock);
   comm.Barrier();
 }
