@@ -24,6 +24,10 @@ namespace orcha {
       std::transform(base.begin(), base.end(), base_.begin(), mapper);
     };
 
+    IndexSpace(const vector_type& base) {
+      base_ = base;
+    }
+    
     IndexSpace(iterator_type first, iterator_type last) {
       base_ = std::vector<T>(first, last);
     }
@@ -64,6 +68,47 @@ namespace orcha {
       return std::move(IndexSpace<T>(begin() + first, begin() + last));
     }
 
+    template<typename F>
+    inline IndexSpace<T> filter(const F f) const {
+      vector_type copy;
+      std::copy_if(begin(), end(), std::back_inserter(copy), f);
+      return std::move(IndexSpace<T>(copy));
+    }
+
+    template<typename U, typename F>
+    inline IndexSpace<U> map(const F f) const {
+      typename IndexSpace<U>::vector_type copy;
+      std::transform(begin(), end(), std::back_inserter(copy), f);
+      return std::move(IndexSpace<U>(copy));
+    }
+    
+    IndexSpace<T> intersection(const IndexSpace<T> &other) const {
+      vector_type copy;
+      std::copy_if(begin(), end(), std::back_inserter(copy), [&other] (T t) {
+	  return other.contains(t);
+	});
+      return std::move(IndexSpace<T>(copy));
+    }
+
+    IndexSpace<T> diff(const IndexSpace<T> &other) const {
+      vector_type copy;
+      std::copy_if(begin(), end(), std::back_inserter(copy), [&other] (T t) {
+	return !other.contains(t);
+      });
+      return std::move(IndexSpace<T>(copy));
+    }
+
+    IndexSpace<T> combine(const IndexSpace<T> &other) const {
+      vector_type copy = base_;
+      copy.reserve(size() + other.size());
+      copy.insert (copy.end(), other.begin(), other.end());
+      return std::move(IndexSpace<T>(copy));     
+    }
+    
+    // IndexSpace<T> union(IndexSpace<T> with)
+    // IndexSpace<T> reverse();
+    // IndexSpace<T> sorted(Ordering order);
+    // IndexSpace<std::tuple<T, U>> zip(IndexSpace<U> other);
   private:
     vector_type base_;
   };

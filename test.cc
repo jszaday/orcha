@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
   auto b = orcha::register_function(arr, &test::b);
   auto c = orcha::register_function(arr, &test::c);
   // Run the orchestration code
-  auto cis = orcha::map<orcha::id_t>(is, [&n] (orcha::id_t i) -> orcha::id_t {
+  auto cis = is.map<orcha::id_t>([&n] (orcha::id_t i) {
     return (i + 1) % n;
   });
   auto as = orcha::strate(a, is);
