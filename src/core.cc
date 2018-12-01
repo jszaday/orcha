@@ -27,25 +27,6 @@ namespace orcha {
     });
   }
 
-  template<typename T>
-  std::future<T> consume_as(id_t in_tag) {
-    std::lock_guard<std::mutex> guard(k_pending_lock_);
-    if (k_pending_.find(in_tag) == k_pending_.end()) {
-      k_pending_[in_tag] = std::move(comm::request_value(in_tag));
-    }
-    return boost::asio::post(k_pool_, [in_tag] {
-      k_pending_lock_.lock();
-      auto f = std::move(k_pending_[in_tag]);
-      k_pending_.erase(in_tag);
-      k_pending_lock_.unlock();
-      f.wait(); auto s = f.get();
-      archive::istream_t is(s);
-      archive::iarchive_t ia(is);
-      T t; ia >> t;
-      return t;
-    });
-  }
-
   void produce_consume(id_t array, id_t entry, id_t element, id_t in_tag, id_t out_tag) {
     std::lock_guard<std::mutex> guard(k_pending_lock_);
     if (k_pending_.find(in_tag) == k_pending_.end()) {
@@ -61,7 +42,7 @@ namespace orcha {
   }
 
   static int tag = 0;
-  
+
   id_t fresh_tag(id_t arr, id_t entry, id_t element) {
     return comm::make_tag(k_arrs_[arr]->node_for(element), tag++);
   }

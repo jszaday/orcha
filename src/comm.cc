@@ -117,6 +117,10 @@ void orcha::comm::finalize(void) {
 void orcha::comm::barrier(const orcha::comm::comm_t &comm) {
   bool flag;
   k_pool_.join();
+  // Once the thread pool has been joined it has to be reconstructed to be used
+  // again... I don't know why, so sue me.
+  k_pool_.~thread_pool();
+  new(&k_pool_) boost::asio::thread_pool(k_thread_pool_size_);
   std::lock_guard<std::mutex> guard(k_mpi_lock);
   comm.Barrier();
 }

@@ -95,7 +95,7 @@ namespace orcha {
     DistributedArray(id_t id, const Mapping<K> *mapping, As... args)
     : id_(id), mapping_(mapping) {
       for (auto i : mapping_->local()) {
-        local_[i] = new V(i, &args...);
+        local_[i] = new V(i, args...);
       }
     }
 
@@ -110,8 +110,8 @@ namespace orcha {
       return mapping_->is_local(k);
     }
 
-    inline V& operator[] (const K& k) {
-      return *local_[k];
+    inline V* operator[] (const K& k) {
+      return local_[k];
     };
 
     inline id_t id() const {
@@ -158,7 +158,7 @@ namespace orcha {
 
   template<typename V, typename K, typename... As>
   std::shared_ptr<DistributedArray<K, V>> distribute(const Mapping<K> *mapping, As... args) {
-    std::shared_ptr<DistributedArray<K, V>> arr = std::make_shared<DistributedArray<K, V>>(k_arrs_.size(), mapping, &args...);
+    std::shared_ptr<DistributedArray<K, V>> arr = std::make_shared<DistributedArray<K, V>>(k_arrs_.size(), mapping, args...);
     k_arrs_.push_back(arr);
     return std::move(arr);
   }
@@ -166,7 +166,7 @@ namespace orcha {
   template<typename K, typename V, typename R, typename... As>
   RegisteredFunction<K, V, R, As...> register_function(std::shared_ptr<DistributedArray<K, V>> arr, R(V::*p)(As...)) {
     reg_t f = [arr, p] (id_t i) {
-      return archive::wrap(functional::bind(p, (*arr)[arr->key_for(i)]));
+      return archive::wrap(functional::bind<V>(p, (*arr)[arr->key_for(i)]));
     };
     k_funs_.push_back(std::move(f));
     return RegisteredFunction<K, V, R, As...>(k_funs_.size() - 1, arr);

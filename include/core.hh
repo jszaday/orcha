@@ -50,7 +50,24 @@ namespace orcha {
   void produce_consume(id_t array, id_t entry, id_t element, id_t in_tag, id_t out_tag);
 
   template<typename T>
-  std::future<T> consume_as(id_t in_tag);
+  std::future<T> consume_as(id_t in_tag) {
+    if (k_pending_.find(in_tag) == k_pending_.end()) {
+      k_pending_lock_.lock();
+      k_pending_[in_tag] = std::move(comm::request_value(in_tag));
+      k_pending_lock_.unlock();
+    }
+    return std::async(std::launch::deferred, [in_tag]() -> T {
+      k_pending_lock_.lock();
+      auto f = std::move(k_pending_[in_tag]);
+      k_pending_.erase(in_tag);
+      k_pending_lock_.unlock();
+      f.wait(); auto s = f.get();
+      archive::istream_t is(s);
+      archive::iarchive_t ia(is);
+      T t; ia >> t;
+      return t;
+    });
+  }
 
   id_t fresh_tag(id_t arr, id_t entry, id_t element);
   id_t fresh_tag(id_t node);
@@ -61,21 +78,23 @@ namespace orcha {
     if (ts.size() != us.size()) {
       throw std::out_of_range("size_mismatch");
     }
-    auto per_node = ts.size() / comm::size(comm::global()),
-         my_node  = comm::rank(comm::global());
+    auto my_node  = comm::rank(comm::global());
+    auto per_node = ts.size() / comm::size(comm::global());
     for (int i = 0; i < ts.size(); i++) {
       id_t which = i / per_node;
       id_t out_tag = fresh_tag(which);
       if (which == my_node) {
         auto t = ts[i], u = us[i];
-        std::function<std::tuple<T, U>(void)> f = [t, u] (void) {
+        std::function<std::string(void)> f = [t, u]() {
           auto tv = consume_as<T>(t),
                uv = consume_as<U>(u);
           tv.wait(); uv.wait();
-          return std::make_tuple(tv.get(), uv.get());
+          archive::ostream_t os; archive::oarchive_t oa(os);
+          oa << std::make_tuple(tv.get(), uv.get());
+          return os.str();
         };
         k_pending_lock_.lock();
-        k_pending_[out_tag] = boost::asio::post(k_pool_, archive::wrap(f));
+        k_pending_[out_tag] = boost::asio::post(k_pool_, boost::asio::use_future(f));
         k_pending_lock_.unlock();
       }
       out_tags.push_back(out_tag);

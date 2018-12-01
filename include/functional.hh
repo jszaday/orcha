@@ -21,13 +21,13 @@ namespace std {
 namespace orcha {
   namespace functional {
     template<class T, class R, class... As, int... Is>
-    std::function<R(As...)> bind(R(T::*p)(As...), T &t, int_sequence<Is...>);
+    std::function<R(As...)> bind(R(T::*p)(As...), T *t, int_sequence<Is...>);
 
     template<class T, class R, class... As>
-    std::function<R(As...)> bind(R(T::*p)(As...), T &t);
+    std::function<R(As...)> bind(R(T::*p)(As...), T *t);
 
     template<class T, class R, class... As>
-    std::function<std::function<R(As...)>(T&)> bind(R(T::*p)(As...));
+    std::function<std::function<R(As...)>(T*)> bind(R(T::*p)(As...));
 
     template<typename R, template<typename...> class Ps, typename... As, int... Is>
     R call(std::function<R(As...)> const &f, Ps<As...> const &ps, int_sequence<Is...>);
@@ -38,18 +38,18 @@ namespace orcha {
 };
 
 template<class T, class R, class... As, int... Is>
-std::function<R(As...)> orcha::functional::bind(R(T::*p)(As...), T &t, int_sequence<Is...>) {
+std::function<R(As...)> orcha::functional::bind(R(T::*p)(As...), T *t, int_sequence<Is...>) {
   return std::bind(p, t, placeholder_template<Is>{}...);
 }
 
 template<class T, class R, class... As>
-std::function<R(As...)> orcha::functional::bind(R(T::*p)(As...), T &t) {
+std::function<R(As...)> orcha::functional::bind(R(T::*p)(As...), T *t) {
   return orcha::functional::bind(p, t, make_int_sequence<sizeof...(As)>{});
 }
 
 template<class T, class R, class... As>
-std::function<std::function<R(As...)>(T&)> orcha::functional::bind(R(T::*p)(As...)) {
-  return [p](T &t) {
+std::function<std::function<R(As...)>(T*)> orcha::functional::bind(R(T::*p)(As...)) {
+  return [p](T* t) {
     return orcha::functional::bind(p, t, make_int_sequence<sizeof...(As)>{});
   };
 }

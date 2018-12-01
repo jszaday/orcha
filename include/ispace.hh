@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
+#include <sstream>
 #include <stdexcept>
 
 namespace orcha {
@@ -49,7 +50,7 @@ namespace orcha {
 
     inline const size_type index_of(T t) const {
       auto v = std::distance(base_.begin(), find(base_.begin(), base_.end(), t));
-      if ( v >= 0 ) {
+      if ( v >= 0 && v < base_.size() ) {
         return (size_type) v;
       } else {
         throw std::out_of_range("ordinal_of");
@@ -58,6 +59,17 @@ namespace orcha {
 
     inline const T& operator[] (const size_type& i) const {
       return base_[i];
+    }
+
+    template<typename U>
+    IndexSpace<std::tuple<T, U>> operator* (IndexSpace<U> other) const {
+      std::vector<std::tuple<T, U>> out;
+      for (auto i : base_) {
+        for (auto j : other) {
+          out.push_back(std::make_tuple(i, j));
+        }
+      }
+      return IndexSpace<std::tuple<T, U>>(out);
     }
 
     inline bool contains(T t) const {
@@ -75,11 +87,11 @@ namespace orcha {
       return std::move(IndexSpace<T>(copy));
     }
 
-    template<typename U, typename F>
-    inline IndexSpace<U> map(const F f) const {
-      typename IndexSpace<U>::vector_type copy;
+    template<typename F>
+    inline IndexSpace<T> map(F f) const {
+      vector_type copy;
       std::transform(begin(), end(), std::back_inserter(copy), f);
-      return std::move(IndexSpace<U>(copy));
+      return std::move(IndexSpace<T>(copy));
     }
 
     IndexSpace<T> intersection(const IndexSpace<T> &other) const {
@@ -122,6 +134,16 @@ namespace orcha {
         out.push_back(std::make_tuple(base_[i], other[i]));
       }
       return IndexSpace<std::tuple<T, U>>(out);
+    }
+
+    std::string to_string(void) const {
+      std::stringstream ss;
+      ss << "[";
+      for (auto i : base_) {
+        ss << i << ", ";
+      }
+      ss << "]";
+      return ss.str();
     }
 
   private:
