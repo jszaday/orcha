@@ -11,9 +11,10 @@ public:
   cannon(std::tuple<size_t, size_t> idx, int n) {
 		x = std::get<0>(idx);
 		y = std::get<1>(idx);
-		a = x * n + y; b = a;
+		auto k = (x + y) % n;
+		a = x * n + k; b = k * n + y; c = 0;
 		std::lock_guard<std::mutex> guard(k_cout_lock_);
-		std::cout << "a[" << x << ", " << y << "] = " << a << std::endl;
+		std::cout << "(a, b)[" << x << ", " << y << "] = " << (x * n + y) << std::endl;
 	}
 
 	float produce_a(void) {
@@ -29,7 +30,7 @@ public:
 		a = std::get<0>(ab);
 		b = std::get<1>(ab);
 		std::lock_guard<std::mutex> guard(k_cout_lock_);
-		std::cout << "[" << x << ", " << y << "]" << " received (" << a << ", " << b << ")" << std::endl;
+		std::cout << "c[" << x << ", " << y << "]" << " = " << c << std::endl;
 	}
 };
 
