@@ -42,6 +42,7 @@ int main(int argc, char **argv) {
   auto cis = is.map<orcha::id_t>([&n] (orcha::id_t i) {
     return (i + 1) % n;
   });
+  // auto cis = is.rotateRight(1);
   auto as = orcha::strate(a, is);
   auto bs = orcha::strate(b, cis, as);
   orcha::strate(c, is, bs);

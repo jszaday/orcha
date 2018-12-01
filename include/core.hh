@@ -49,7 +49,39 @@ namespace orcha {
   void consume(id_t array, id_t entry, id_t element, id_t in_tag);
   void produce_consume(id_t array, id_t entry, id_t element, id_t in_tag, id_t out_tag);
 
+  template<typename T>
+  std::future<T> consume_as(id_t in_tag);
+
   id_t fresh_tag(id_t arr, id_t entry, id_t element);
+  id_t fresh_tag(id_t node);
+
+  template<typename T, typename U>
+  inline TaggedValues<std::tuple<T, U>> zip2(TaggedValues<T> ts, TaggedValues<U> us) {
+    TaggedValues<std::tuple<T, U>> out_tags;
+    if (ts.size() != us.size()) {
+      throw std::out_of_range("size_mismatch");
+    }
+    auto per_node = ts.size() / comm::size(comm::global()),
+         my_node  = comm::rank(comm::global());
+    for (int i = 0; i < ts.size(); i++) {
+      id_t which = i / per_node;
+      id_t out_tag = fresh_tag(which);
+      if (which == my_node) {
+        auto t = ts[i], u = us[i];
+        std::function<std::tuple<T, U>(void)> f = [t, u] (void) {
+          auto tv = consume_as<T>(t),
+               uv = consume_as<U>(u);
+          tv.wait(); uv.wait();
+          return std::make_tuple(tv.get(), uv.get());
+        };
+        k_pending_lock_.lock();
+        k_pending_[out_tag] = boost::asio::post(k_pool_, archive::wrap(f));
+        k_pending_lock_.unlock();
+      }
+      out_tags.push_back(out_tag);
+    }
+    return std::move(out_tags);
+  }
 
   template<typename K, typename V, typename R>
   inline TaggedValues<R> strate(RegisteredFunction<K, V, R> f, IndexSpace<K> fis) {

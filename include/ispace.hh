@@ -27,7 +27,7 @@ namespace orcha {
     IndexSpace(const vector_type& base) {
       base_ = base;
     }
-    
+
     IndexSpace(iterator_type first, iterator_type last) {
       base_ = std::vector<T>(first, last);
     }
@@ -81,7 +81,7 @@ namespace orcha {
       std::transform(begin(), end(), std::back_inserter(copy), f);
       return std::move(IndexSpace<U>(copy));
     }
-    
+
     IndexSpace<T> intersection(const IndexSpace<T> &other) const {
       vector_type copy;
       std::copy_if(begin(), end(), std::back_inserter(copy), [&other] (T t) {
@@ -102,13 +102,28 @@ namespace orcha {
       vector_type copy = base_;
       copy.reserve(size() + other.size());
       copy.insert (copy.end(), other.begin(), other.end());
-      return std::move(IndexSpace<T>(copy));     
+      return std::move(IndexSpace<T>(copy));
     }
-    
+
+    IndexSpace<T> rotate_right(const size_type &howMany) const {
+      vector_type copy = base_;
+      std::rotate(copy.begin(), copy.begin() + ((howMany + size() / 2) % size()), copy.end());
+      return std::move(IndexSpace<T>(copy));
+    }
+
     // IndexSpace<T> union(IndexSpace<T> with)
     // IndexSpace<T> reverse();
     // IndexSpace<T> sorted(Ordering order);
-    // IndexSpace<std::tuple<T, U>> zip(IndexSpace<U> other);
+
+    template<typename U>
+    IndexSpace<std::tuple<T, U>> zip(IndexSpace<U> other) {
+      std::vector<std::tuple<T, U>> out;
+      for (auto i = 0; i < size(); i++) {
+        out.push_back(std::make_tuple(base_[i], other[i]));
+      }
+      return IndexSpace<std::tuple<T, U>>(out);
+    }
+
   private:
     vector_type base_;
   };
