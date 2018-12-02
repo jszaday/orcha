@@ -25,13 +25,16 @@ namespace comm {
     using comm_t = MPI::Intracomm; // MPI::Comm;
     const comm_t& global(void);
 
-    std::future<std::string> request_value(id_t tag);
+    std::future<std::string> request_value(id_t tag, bool send = true);
 
     // extern decltype(MPI::COMM_WORLD) k_global;
     void send_value(const comm_t& comm, int source, int tag);
+    void send_buffer(const comm_t& comm, int source, int tag, const std::string& buffer);
     void receive_value(const orcha::comm::comm_t& comm, int source, int tag, char* buffer, int count);
     bool poll_for_message(const comm_t& comm);
     void send_requests(const comm_t& comm);
+
+    void broadcast(const comm_t& comm, int source, std::string& buffer);
 
     int rank(const comm_t& comm);
     int size(const comm_t& comm);

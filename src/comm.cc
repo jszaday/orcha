@@ -23,12 +23,34 @@ orcha::id_t orcha::comm::make_tag(int source, int tag)
     return (((orcha::id_t)source) << 32) | tag;
 }
 
-std::future<std::string> orcha::comm::request_value(orcha::id_t tag)
+std::future<std::string> orcha::comm::request_value(orcha::id_t tag,
+    bool send)
 {
     std::lock_guard<std::mutex> guard(k_req_lock);
-    k_request_queue_.emplace_back(tag);
+    if (send) {
+        k_request_queue_.emplace_back(tag);
+    }
     k_requests_[tag] = std::promise<std::string>();
     return std::move(k_requests_[tag].get_future());
+}
+
+void orcha::comm::broadcast(const orcha::comm::comm_t& comm, int source,
+    std::string& buffer)
+{
+    std::lock_guard<std::mutex> guard(k_mpi_lock);
+    int size, rank = comm.Get_rank();
+    if (rank == source) {
+        size = buffer.size();
+    }
+    comm.Bcast((void*)&size, 1, MPI::INT, source);
+    if (rank == source) {
+        comm.Bcast(const_cast<char*>(buffer.c_str()), size, MPI::CHAR, source);
+    } else {
+        auto tmp = new char[size];
+        comm.Bcast(tmp, size, MPI::CHAR, source);
+        buffer = std::string(tmp, size);
+        delete tmp;
+    }
 }
 
 bool orcha::comm::poll_for_message(const orcha::comm::comm_t& comm)
@@ -62,13 +84,20 @@ void orcha::comm::send_value(const orcha::comm::comm_t& comm, int source,
     id_t tag_ = make_tag(comm.Get_rank(), tag);
     k_pending_lock_.lock();
     if (k_pending_.find(tag_) == k_pending_.end()) {
-        throw std::runtime_error("could not locate tag");
+        throw std::runtime_error("could not locate tag " + std::to_string(tag_));
     }
     auto fut = std::move(k_pending_[tag_]);
     k_pending_.erase(tag_);
     k_pending_lock_.unlock();
     fut.wait();
-    auto val = fut.get().insert(0, &VALUE, 1);
+    send_buffer(comm, source, tag, fut.get());
+}
+
+void orcha::comm::send_buffer(const orcha::comm::comm_t& comm, int source,
+    int tag, const std::string& buffer)
+{
+    std::string val = buffer;
+    val.insert(0, &VALUE, 1);
     std::lock_guard<std::mutex> guard(k_mpi_lock);
     comm.Send(val.c_str(), val.size(), MPI::CHAR, source, tag);
 }

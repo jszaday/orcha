@@ -160,4 +160,64 @@ inline TaggedValues<R> strate(RegisteredFunction<K, V, R, T> f, IndexSpace<K> fi
     }
     return std::move(out_tags);
 }
+
+template <typename K, typename V, typename T>
+inline void bcast(RegisteredFunction<K, V, void, T> f, IndexSpace<K> fis, T val)
+{
+    archive::ostream_t os;
+    archive::oarchive_t oa(os);
+    oa << val;
+    auto sval = os.str();
+    for (int i = 0; i < fis.size(); i++) {
+        if (f.is_local(fis[i])) {
+            id_t element = f.ordinal_for(fis[i]),
+                 entry = f.id();
+            boost::asio::post(k_pool_, [entry, element, sval] {
+                (k_funs_[entry](element))(sval);
+            });
+        }
+    }
+}
+
+template <typename T, typename F, typename R>
+inline R reduce(TaggedValues<T> ts, F reducer, R init)
+{
+    R val;
+    auto rank = comm::rank(comm::global()),
+         size = comm::size(comm::global());
+    auto per_node = ts.size() / size;
+    id_t src_tag, dst_tag;
+    if ((rank % 2) == 0) {
+        dst_tag = fresh_tag(rank);
+        src_tag = fresh_tag(rank - 1);
+    } else {
+        src_tag = fresh_tag(rank - 1);
+        dst_tag = fresh_tag(rank);
+    }
+    if (rank == 0) {
+        val = init;
+    } else {
+        auto s = comm::request_value(src_tag, false).get();
+        archive::istream_t is(s);
+        archive::iarchive_t ia(is);
+        ia >> val;
+    }
+    for (int i = rank * per_node; i < (rank + 1) * per_node; i++) {
+        val = reducer(val, consume_as<T>(ts[i]).get());
+    }
+    archive::ostream_t os;
+    archive::oarchive_t oa(os);
+    oa << val;
+    std::string s = os.str();
+    if (rank == (size - 1)) {
+        comm::broadcast(comm::global(), rank, s);
+    } else {
+        comm::send_buffer(comm::global(), rank + 1, dst_tag, s);
+        comm::broadcast(comm::global(), size - 1, s);
+        archive::istream_t is(s);
+        archive::iarchive_t ia(is);
+        ia >> val;
+    }
+    return val;
+}
 }
