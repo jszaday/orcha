@@ -11,11 +11,11 @@
 #include <thread>
 
 namespace orcha {
-  using id_t = std::uint64_t;
+using id_t = std::uint64_t;
 
-  namespace comm {
+namespace comm {
     const char REQUEST = 'R';
-    const char VALUE   = 'V';
+    const char VALUE = 'V';
     const int MPI_PERIOD_US = 10;
 
     extern std::thread k_comms_;
@@ -28,17 +28,17 @@ namespace orcha {
     std::future<std::string> request_value(id_t tag);
 
     // extern decltype(MPI::COMM_WORLD) k_global;
-    void send_value(const comm_t &comm, int source, int tag);
-    void receive_value(const orcha::comm::comm_t &comm, int source, int tag, char* buffer, int count);
-    bool poll_for_message(const comm_t &comm);
-    void send_requests(const comm_t &comm);
+    void send_value(const comm_t& comm, int source, int tag);
+    void receive_value(const orcha::comm::comm_t& comm, int source, int tag, char* buffer, int count);
+    bool poll_for_message(const comm_t& comm);
+    void send_requests(const comm_t& comm);
 
-    int rank(const comm_t &comm);
-    int size(const comm_t &comm);
-    void initialize(int &argc, char** &argv);
+    int rank(const comm_t& comm);
+    int size(const comm_t& comm);
+    void initialize(int& argc, char**& argv);
     void finalize(void);
-    void barrier(const orcha::comm::comm_t &comm);
+    void barrier(const orcha::comm::comm_t& comm);
 
     id_t make_tag(int source, int tag);
-  }
+}
 }
