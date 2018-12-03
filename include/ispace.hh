@@ -180,6 +180,12 @@ inline IndexSpace<size_t> index_space(const size_t n)
     return IndexSpace<size_t>(n);
 }
 
+inline IndexSpace<size_t> singleton(size_t element)
+{
+    std::vector<size_t> base = { element };
+    return IndexSpace<size_t>(base);
+}
+
 template <typename T, typename V, typename F>
 inline IndexSpace<T> map(const V& base, const F&& mapper)
 {

@@ -204,4 +204,14 @@ RegisteredFunction<K, V, R, As...> register_function(std::shared_ptr<Distributed
     k_funs_.push_back(std::move(f));
     return RegisteredFunction<K, V, R, As...>(k_funs_.size() - 1, arr);
 }
+
+template <typename K, typename V>
+void call_local(std::shared_ptr<DistributedArray<K, V>> arr, IndexSpace<K> is, void (V::*p)(void))
+{
+    for (auto i : is) {
+        if (arr->is_local(i)) {
+            (((*arr)[i])->*p)();
+        }
+    }
+}
 }
