@@ -4,11 +4,13 @@
 
 #include <boost/asio.hpp>
 #include <future>
+#include <condition_variable>
 #include <mutex>
 
 namespace orcha {
 extern std::map<id_t, std::future<std::string>> k_pending_;
 extern std::mutex k_pending_lock_;
+extern std::condition_variable k_pending_var_;
 extern boost::asio::thread_pool k_pool_;
 
 const int k_thread_pool_size_ = 4;
@@ -108,6 +110,45 @@ inline TaggedValues<std::tuple<T, U>> zip2(TaggedValues<T> ts, TaggedValues<U> u
             k_pending_lock_.lock();
             k_pending_[out_tag] = boost::asio::post(k_pool_, boost::asio::use_future(f));
             k_pending_lock_.unlock();
+            k_pending_var_.notify_all();
+        }
+        out_tags.push_back(out_tag);
+    }
+    return std::move(out_tags);
+}
+
+template <typename T, typename U, typename V, typename W>
+inline TaggedValues<std::tuple<T, U, V, W>> zip4(TaggedValues<T> ts, TaggedValues<U> us, TaggedValues<V> vs, TaggedValues<W> ws)
+{
+    TaggedValues<std::tuple<T, U, V, W>> out_tags;
+    if (ts.size() != us.size() || vs.size() != ws.size() || ts.size() != vs.size()) {
+        throw std::out_of_range("size_mismatch");
+    }
+    auto my_node = comm::rank(comm::global());
+    auto per_node = ts.size() / comm::size(comm::global());
+    for (int i = 0; i < ts.size(); i++) {
+        id_t which = i / per_node;
+        id_t out_tag = fresh_tag(which);
+        if (which == my_node) {
+            auto t = ts[i], u = us[i], v = vs[i], w = ws[i];
+            std::function<std::string(void)> f = [t, u, v, w]() {
+                auto tv = consume_as<T>(t),
+                     uv = consume_as<U>(u),
+                     vv = consume_as<V>(v),
+                     wv = consume_as<W>(w);
+                tv.wait();
+                uv.wait();
+                vv.wait();
+                wv.wait();
+                archive::ostream_t os;
+                archive::oarchive_t oa(os);
+                oa << std::make_tuple(tv.get(), uv.get(), vv.get(), wv.get());
+                return os.str();
+            };
+            k_pending_lock_.lock();
+            k_pending_[out_tag] = boost::asio::post(k_pool_, boost::asio::use_future(f));
+            k_pending_lock_.unlock();
+            k_pending_var_.notify_all();
         }
         out_tags.push_back(out_tag);
     }

@@ -82,15 +82,18 @@ void orcha::comm::send_value(const orcha::comm::comm_t& comm, int source,
     int tag)
 {
     id_t tag_ = make_tag(comm.Get_rank(), tag);
-    k_pending_lock_.lock();
-    if (k_pending_.find(tag_) == k_pending_.end()) {
-        throw std::runtime_error("could not locate tag " + std::to_string(tag_));
+    std::future<std::string> f;
+    {
+        std::unique_lock<std::mutex> lk(k_pending_lock_);
+        if (k_pending_.find(tag_) == k_pending_.end()) {
+            k_pending_var_.wait(lk, [tag_] {
+                return k_pending_.find(tag_) != k_pending_.end();
+            });
+        }
+        f = std::move(k_pending_[tag_]);
+        k_pending_.erase(tag_);
     }
-    auto fut = std::move(k_pending_[tag_]);
-    k_pending_.erase(tag_);
-    k_pending_lock_.unlock();
-    fut.wait();
-    send_buffer(comm, source, tag, fut.get());
+    send_buffer(comm, source, tag, f.get());
 }
 
 void orcha::comm::send_buffer(const orcha::comm::comm_t& comm, int source,

@@ -1,18 +1,19 @@
 #include "core.hh"
 #include <cstdlib>
 
-std::mutex k_cout_lock_;
+// std::mutex k_cout_lock_;
 
 class transpose {
     size_t x, y;
     float a, a_t;
+
 public:
     transpose(std::tuple<size_t, size_t> idx, int n)
     {
         x = std::get<0>(idx);
         y = std::get<1>(idx);
         a = a_t = x * n + y;
-        std::lock_guard<std::mutex> guard(k_cout_lock_);
+        // std::lock_guard<std::mutex> guard(k_cout_lock_);
         std::cout << "a[" << x << ", " << y << "] = " << a << std::endl;
     }
 
@@ -28,17 +29,11 @@ public:
 
     void print()
     {
-      std::lock_guard<std::mutex> guard(k_cout_lock_);
-      std::cout << "a[" << x << ", " << y << "]"
-                << " = " << a_t << std::endl;
+        // std::lock_guard<std::mutex> guard(k_cout_lock_);
+        std::cout << "a[" << x << ", " << y << "]"
+                  << " = " << a_t << std::endl;
     }
 };
-
-template <typename T, typename U>
-std::ostream& operator<<(std::ostream& o, const std::tuple<T, U>& p)
-{
-    return o << "(" << std::get<0>(p) << ", " << std::get<1>(p) << ")";
-}
 
 int main(int argc, char** argv)
 {

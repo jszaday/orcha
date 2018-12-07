@@ -5,6 +5,7 @@ namespace orcha {
 boost::asio::thread_pool k_pool_(k_thread_pool_size_);
 std::map<id_t, std::future<std::string>> k_pending_;
 std::mutex k_pending_lock_;
+std::condition_variable k_pending_var_;
 
 void produce(id_t array, id_t entry, id_t element, id_t out_tag)
 {
@@ -12,6 +13,7 @@ void produce(id_t array, id_t entry, id_t element, id_t out_tag)
     k_pending_[out_tag] = boost::asio::post(k_pool_, boost::asio::use_future([entry, element] {
         return (k_funs_[entry](element))({});
     }));
+    k_pending_var_.notify_all();
 }
 
 void consume(id_t array, id_t entry, id_t element, id_t in_tag)
@@ -47,6 +49,7 @@ void produce_consume(id_t array, id_t entry, id_t element, id_t in_tag,
             return (k_funs_[entry](element))(f.get());
             ;
         }));
+    k_pending_var_.notify_all();
 }
 
 static int tag = 0;
