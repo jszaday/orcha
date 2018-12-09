@@ -57,6 +57,11 @@ void produce(id_t array, id_t entry, id_t element, id_t out_tag);
 void consume(id_t array, id_t entry, id_t element, id_t in_tag);
 void produce_consume(id_t array, id_t entry, id_t element, id_t in_tag, id_t out_tag);
 
+inline void barrier(void)
+{
+    comm::barrier(comm::global());
+}
+
 template <typename T>
 std::future<T> consume_as(id_t in_tag)
 {
